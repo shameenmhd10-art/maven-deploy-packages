@@ -1,13 +1,13 @@
 package com.example;
 
-public class App {
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-    public String getMessage() {
-        return "Hello Jenkins CI/CD!";
-    }
+public class AppTest {
 
-    public static void main(String[] args) {
+    @Test
+    void testMessage() {
         App app = new App();
-        System.out.println(app.getMessage());
+        assertEquals("Hello Jenkins CI/CD!", app.getMessage());
     }
 }
