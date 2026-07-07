@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         GITHUB_CREDS = credentials('package')
-        JAVA_HOME    = tool 'java'
+        JAVA_HOME    = tool 'jdk11'
         MAVEN_HOME   = tool 'maven'
         PATH         = "${JAVA_HOME}\\bin;${env.PATH}"
     }
@@ -25,7 +25,36 @@ pipeline {
             }
         }
 
-        stage('Build & Deploy') {
+        stage('Build') {
+            steps {
+                bat '''
+                "%MAVEN_HOME%\\bin\\mvn.cmd" clean compile
+                '''
+            }
+        }
+
+        stage('Unit Test') {
+            steps {
+                bat '''
+                "%MAVEN_HOME%\\bin\\mvn.cmd" test
+                '''
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                bat '''
+                "%MAVEN_HOME%\\bin\\mvn.cmd" package
+                '''
+            }
+        }
+
+        stage('Deploy to GitHub Packages') {
             steps {
                 configFileProvider([configFile(fileId: 'maven-github-settings', variable: 'MAVEN_SETTINGS')]) {
                     withEnv([
@@ -33,8 +62,7 @@ pipeline {
                         "GH_TOKEN=${GITHUB_CREDS_PSW}"
                     ]) {
                         bat '''
-                        "%MAVEN_HOME%\\bin\\mvn.cmd" -s "%MAVEN_SETTINGS%" -B clean package
-                        "%MAVEN_HOME%\\bin\\mvn.cmd" -s "%MAVEN_SETTINGS%" -B deploy
+                        "%MAVEN_HOME%\\bin\\mvn.cmd" -s "%MAVEN_SETTINGS%" deploy
                         '''
                     }
                 }
@@ -44,11 +72,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Build and deployment to GitHub Packages completed successfully."
+            echo "✅ Build, Unit Test, Package and Deployment completed successfully."
         }
-
         failure {
-            echo "❌ Pipeline failed. Check the console output for details."
+            echo "❌ Pipeline failed."
         }
     }
 }
