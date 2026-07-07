@@ -3,9 +3,9 @@ pipeline {
 
     environment {
         GITHUB_CREDS = credentials('package')
-        JAVA_HOME    = tool name: 'java'
-        MAVEN_HOME   = tool name: 'maven'
-        PATH         = "${JAVA_HOME}/bin:${PATH}"
+        JAVA_HOME    = tool 'jdk11'
+        MAVEN_HOME   = tool 'maven'
+        PATH         = "${JAVA_HOME}\\bin;${env.PATH}"
     }
 
     stages {
@@ -16,16 +16,27 @@ pipeline {
             }
         }
 
+        stage('Verify Tools') {
+            steps {
+                bat '''
+                java -version
+                "%MAVEN_HOME%\\bin\\mvn.cmd" -version
+                '''
+            }
+        }
+
         stage('Build & Deploy') {
             steps {
                 configFileProvider([configFile(fileId: 'maven-github-settings', variable: 'MAVEN_SETTINGS')]) {
-                    sh """
-                        export GH_USER=${GITHUB_CREDS_USR}
-                        export GH_TOKEN=${GITHUB_CREDS_PSW}
-
-                        ${MAVEN_HOME}/bin/mvn -s $MAVEN_SETTINGS -B clean package
-                        ${MAVEN_HOME}/bin/mvn -s $MAVEN_SETTINGS -B deploy
-                    """
+                    withEnv([
+                        "GH_USER=${GITHUB_CREDS_USR}",
+                        "GH_TOKEN=${GITHUB_CREDS_PSW}"
+                    ]) {
+                        bat '''
+                        "%MAVEN_HOME%\\bin\\mvn.cmd" -s "%MAVEN_SETTINGS%" -B clean package
+                        "%MAVEN_HOME%\\bin\\mvn.cmd" -s "%MAVEN_SETTINGS%" -B deploy
+                        '''
+                    }
                 }
             }
         }
@@ -35,6 +46,7 @@ pipeline {
         success {
             echo "✅ Build and deployment to GitHub Packages completed successfully."
         }
+
         failure {
             echo "❌ Pipeline failed. Check the console output for details."
         }
